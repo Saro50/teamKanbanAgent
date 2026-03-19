@@ -32,7 +32,8 @@
       "mcp__taskBoard__search_todos",
       "mcp__taskBoard__create_todo",
       "Bash(env:*)",
-      "Bash(echo exit: $?:*)"
+      "Bash(echo exit: $?:*)",
+      "Bash(do:*)"
     ]
   }
 }

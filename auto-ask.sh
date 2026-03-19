@@ -171,7 +171,7 @@ EOF
 
   echo ""
   echo "═══════════════════════════════════════════════════"
-  echo "  批次：$BATCH_NAME（$TOTAL 道题）"
+  echo "  批次：${BATCH_NAME}（${TOTAL} 道题）"
   [[ -n "$BATCH_DESC" ]] && echo "  描述：$BATCH_DESC"
   echo "  报告：$REPORT"
   echo "═══════════════════════════════════════════════════"
