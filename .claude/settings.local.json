@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod +x:*)",
+      "Bash(./auto-ask.sh:*)",
+      "Bash(grep:*)",
+      "Bash(npx tsc:*)",
+      "Bash(sqlite3:*)",
+      "Bash(ls:*)",
+      "Bash(npm install:*)",
+      "Bash(PGPASSWORD=pass4TODOLIST psql:*)",
+      "Bash(node:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npm run:*)",
+      "Bash(curl:*)",
+      "Bash(lsof:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(nvm use:*)",
+      "Bash(grep:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(cat:*)",
+      "Bash(chmod +x:*)",
+      "Bash(bash:*)",
+      "mcp__tapd__proxy_execute_tool",
+      "mcp__tapd__lookup_tool_param_schema",
+      "mcp__TAPD__lookup_tool_param_schema",
+      "mcp__TAPD__proxy_execute_tool",
+      "mcp__TAPD__lookup_tapd_tool",
+      "mcp__taskBoard__list_projects",
+      "mcp__taskBoard__search_todos",
+      "mcp__taskBoard__create_todo",
+      "Bash(env:*)",
+      "Bash(echo exit: $?:*)"
+    ]
+  }
+}
