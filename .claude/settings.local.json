@@ -33,7 +33,10 @@
       "mcp__taskBoard__create_todo",
       "Bash(env:*)",
       "Bash(echo exit: $?:*)",
-      "Bash(do:*)"
+      "Bash(do:*)",
+      "Bash(git:*)",
+      "Bash(/tmp/tree.txt:*)",
+      "Read(//tmp/**)"
     ]
   }
 }
