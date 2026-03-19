@@ -148,8 +148,8 @@ run_batch() {
   local REPORT="$RESULTS_DIR/${BATCH_NAME}_${TIMESTAMP}.md"
 
   local TMP_A TMP_B
-  TMP_A=$(mktemp /tmp/agent_a_XXXXXX.txt)
-  TMP_B=$(mktemp /tmp/agent_b_XXXXXX.txt)
+  TMP_A=$(mktemp -t agent_a.XXXXXX)
+  TMP_B=$(mktemp -t agent_b.XXXXXX)
   trap 'rm -f "$TMP_A" "$TMP_B"' EXIT
 
   # ── 4. 写入报告头部 ──
