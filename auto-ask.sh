@@ -95,18 +95,29 @@ echo "📌 Agent B：$CMD_B  (workspace 参数：${WSFLAG_B:-无})"
 # ─────────────────────────────────────────────
 EXTRA_A=""
 EXTRA_B=""
+WS_A=""
+WS_B=""
+TMP_A=""
+TMP_B=""
+
+# 统一清理函数，脚本退出时一次性清理所有临时资源
+cleanup() {
+  [[ -n "$TMP_A" && -f "$TMP_A" ]] && rm -f "$TMP_A"
+  [[ -n "$TMP_B" && -f "$TMP_B" ]] && rm -f "$TMP_B"
+  [[ -n "$WS_A"  && -d "$WS_A"  ]] && rm -rf "$WS_A"
+  [[ -n "$WS_B"  && -d "$WS_B"  ]] && rm -rf "$WS_B"
+}
+trap cleanup EXIT
 
 if [[ -n "$WSFLAG_A" ]]; then
   WS_A=$(mktemp -d /tmp/agent-a-workspace-XXXXXX)
   EXTRA_A="$WSFLAG_A $WS_A"
   echo "🗂  Agent A workspace：$WS_A"
-  trap 'rm -rf "$WS_A"' EXIT
 fi
 if [[ -n "$WSFLAG_B" ]]; then
   WS_B=$(mktemp -d /tmp/agent-b-workspace-XXXXXX)
   EXTRA_B="$WSFLAG_B $WS_B"
   echo "🗂  Agent B workspace：$WS_B"
-  trap 'rm -rf "$WS_B"' EXIT
 fi
 
 # ─────────────────────────────────────────────
@@ -147,10 +158,8 @@ run_batch() {
   TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
   local REPORT="$RESULTS_DIR/${BATCH_NAME}_${TIMESTAMP}.md"
 
-  local TMP_A TMP_B
   TMP_A=$(mktemp -t agent_a.XXXXXX)
   TMP_B=$(mktemp -t agent_b.XXXXXX)
-  trap 'rm -f "$TMP_A" "$TMP_B"' EXIT
 
   # ── 4. 写入报告头部 ──
   local DATETIME

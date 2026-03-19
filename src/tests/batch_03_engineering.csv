@@ -1,0 +1,11 @@
+# 批次名称：代码工程实战
+# 测试目标：验证 Agent 在真实编码场景下的代码阅读、缺陷定位、重构设计与多步骤工程执行能力
+# 适用场景：Agent 编码产出质量评估
+#
+1,"阅读下面这段 Python 代码并找出所有 bug，只列出问题不要给修复代码：\n\ndef merge_dicts(*dicts, override=True):\n    result = {}\n    for d in dicts:\n        for k, v in d:\n            if override or k not in result:\n                result[k] = v\n    return result\n\ndef get_user(users, user_id):\n    for user in users:\n        if user['id'] == user_id:\n            return user\n        return None\n\ndef safe_divide(a, b):\n    try:\n        return a / b\n    except ZeroDivisionError:\n        return 0\n    except TypeError as e:\n        print(f'Type error: {e}')"
+2,"现在给出上述三个函数的修复代码，每个函数附一行注释说明修了什么。"
+3,"为修复后的三个函数编写 pytest 单元测试，要求每个函数至少覆盖：正常路径、边界条件、异常路径各一个用例。"
+4,"我有一个接口响应变慢的问题，下面是伪代码，帮我分析性能瓶颈并给出优化方案（不需要写完整代码，给出思路即可）：\n\ndef get_dashboard(user_id):\n    user = db.query('SELECT * FROM users WHERE id = %s', user_id)\n    orders = db.query('SELECT * FROM orders WHERE user_id = %s', user_id)\n    for order in orders:\n        order['items'] = db.query('SELECT * FROM items WHERE order_id = %s', order['id'])\n        order['payment'] = db.query('SELECT * FROM payments WHERE order_id = %s', order['id'])\n    notifications = requests.get(f'https://api.internal/notifications/{user_id}').json()\n    return {'user': user, 'orders': orders, 'notifications': notifications}"
+5,"基于你上一题的优化思路，把伪代码重写为优化后的版本，要求保持接口返回结构不变。"
+6,"请为下面这段代码做重构，目标是提高可读性和可测试性，不要改变外部行为：\n\nclass P:\n    def __init__(s,d):\n        s.d=d\n    def r(s):\n        t=0;n=0\n        for i in s.d:\n            if i['s']=='a' and i['v']>0:\n                t+=i['v'];n+=1\n        if n==0:return 0\n        return {'avg':t/n,'count':n,'total':t}"
+7,"回顾这次对话中你写的所有代码，如果要把它们放进一个真实项目里，你会建议怎样的目录结构和模块划分？给出树形结构图并简要说明各模块职责。"
