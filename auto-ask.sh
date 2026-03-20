@@ -152,10 +152,9 @@ run_batch() {
     return 1
   fi
 
-  # ── 3. 创建报告文件（记录与评估分目录） ──
+  # ── 3. 创建报告文件（按批次分目录） ──
   local BATCH_RECORDS_DIR="$RESULTS_DIR/$BATCH_NAME/records"
-  local BATCH_EVALS_DIR="$RESULTS_DIR/$BATCH_NAME/evals"
-  mkdir -p "$BATCH_RECORDS_DIR" "$BATCH_EVALS_DIR"
+  mkdir -p "$BATCH_RECORDS_DIR"
   local TIMESTAMP
   TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
   local REPORT="$BATCH_RECORDS_DIR/${TIMESTAMP}.md"
@@ -253,60 +252,12 @@ EOF
   echo "═══════════════════════════════════════════════════"
   echo ""
 
-  # ── 评估阶段：检测同名模板文件并自动评估 ──
-  local TEMPLATE_FILE="${QUESTIONS_FILE%.csv}.template.md"
-  if [[ -f "$TEMPLATE_FILE" ]]; then
-    echo "📐 发现模板文件：$TEMPLATE_FILE"
-
-    # 从 .env 读取评估命令
-    local ENV_FILE="$PROJECT_ROOT/.env"
-    if [[ ! -f "$ENV_FILE" ]]; then
-      echo "⚠️  未找到 .env 文件，跳过自动评估" >&2
-      return 0
-    fi
-    local EVAL_CMD_TEMPLATE
-    EVAL_CMD_TEMPLATE=$(grep '^\s*EVALUTION_CMD=' "$ENV_FILE" | head -1 | sed 's/^\s*EVALUTION_CMD=//' | sed 's/\r//')
-    if [[ -z "$EVAL_CMD_TEMPLATE" ]]; then
-      echo "⚠️  .env 中未找到 EVALUTION_CMD，跳过自动评估" >&2
-      return 0
-    fi
-
-    echo "🔍 正在生成评估报告..."
-    local EVAL_REPORT="$BATCH_EVALS_DIR/${TIMESTAMP}.md"
-
-    # 构造评估 prompt（对比报告内容）
-    local COMPARISON_CONTENT
-    COMPARISON_CONTENT=$(cat "$REPORT")
-    local EVAL_PROMPT
-    EVAL_PROMPT="你是一个 AI 输出质量评估专家。请根据系统提示中提供的【评估模板】，对以下【对比报告】中两个 Agent 的输出逐题打分，最终生成结构化的 Markdown 评估报告，包含：
-1. 逐题评分表（Agent A / Agent B 各维度分数 + 简评）
-2. 综合评分汇总表
-3. 总体评价与使用场景建议
-
-# 对比报告
-
-${COMPARISON_CONTENT}"
-
-    # 替换 {SystemPrompts}；{Prompts} 不做字符串替换，作为独立参数传递
-    local EVAL_CMD_PREFIX
-    EVAL_CMD_PREFIX="${EVAL_CMD_TEMPLATE/\{SystemPrompts\}/$TEMPLATE_FILE}"
-    EVAL_CMD_PREFIX="${EVAL_CMD_PREFIX/\{Prompts\}/}"
-
-    echo "  $ ${EVAL_CMD_PREFIX} \"<prompt: ${#EVAL_PROMPT} chars>\""
-    echo ""
-
-    # 将命令前缀按空格拆分为数组，再把 EVAL_PROMPT 作为单个参数追加
-    read -ra EVAL_CMD_ARGS <<< "$EVAL_CMD_PREFIX"
-    env -u CLAUDECODE "${EVAL_CMD_ARGS[@]}" "$EVAL_PROMPT" 2>&1 | tee "$EVAL_REPORT" || true
-
-    echo ""
-    echo "═══════════════════════════════════════════════════"
-    echo "  📊 评估报告：$EVAL_REPORT"
-    echo "═══════════════════════════════════════════════════"
-    echo ""
+  # ── 评估阶段：调用独立评估脚本 ──
+  local EVAL_SCRIPT="$PROJECT_ROOT/evaluate.sh"
+  if [[ -x "$EVAL_SCRIPT" ]]; then
+    "$EVAL_SCRIPT" -r "$REPORT"
   else
-    echo "  （无模板文件，跳过自动评估。如需评估请创建：$TEMPLATE_FILE）"
-    echo ""
+    echo "  ⚠️  未找到 evaluate.sh，跳过自动评估" >&2
   fi
 }
 

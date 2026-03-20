@@ -21,12 +21,20 @@ claude-internal -p |
 
 在 `src/tests/` 新建 `batch_XX_name.csv`，写入测试题目；可选同名 `.template.md` 定义评分标准。
 
-**3. 运行**
+**3. 运行对比测试**
 
 ```bash
 ./auto-ask.sh -t src/tests/batch_01_basic.csv   # 指定批次
 ./auto-ask.sh --all                              # 全部批次
 ```
 
-结果保存在 `results/` 目录，有模板时自动生成评估报告。
+**4. 独立评估（可对已有记录重新评估）**
+
+```bash
+./evaluate.sh -r results/batch_01_basic/records/20260319_150503.md  # 评估指定记录
+./evaluate.sh -b batch_01_basic                                      # 评估该批次最新记录
+./evaluate.sh --all                                                  # 评估所有批次最新记录
+```
+
+对比记录保存在 `results/<批次名>/records/`，评估结论保存在 `results/<批次名>/evals/`。
 
