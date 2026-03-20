@@ -166,14 +166,16 @@ if $EVAL_ALL; then
 fi
 
 # 将批次名解析为最新记录文件
-for bname in "${BATCH_NAMES[@]}"; do
-  latest=$(latest_record "$bname")
-  if [[ -n "$latest" ]]; then
-    RECORD_FILES+=("$latest")
-  else
-    echo "⚠️  批次 $bname 没有记录文件，跳过" >&2
-  fi
-done
+if [[ ${#BATCH_NAMES[@]} -gt 0 ]]; then
+  for bname in "${BATCH_NAMES[@]}"; do
+    latest=$(latest_record "$bname")
+    if [[ -n "$latest" ]]; then
+      RECORD_FILES+=("$latest")
+    else
+      echo "⚠️  批次 $bname 没有记录文件，跳过" >&2
+    fi
+  done
+fi
 
 if [[ ${#RECORD_FILES[@]} -eq 0 ]]; then
   echo "用法：$0 -r <记录文件>  或  $0 -b <批次名>  或  $0 --all" >&2

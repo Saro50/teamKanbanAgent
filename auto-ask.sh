@@ -53,7 +53,7 @@ fi
 
 # ─────────────────────────────────────────────
 # 1. 读取 cmd.conf
-# 格式：<命令及基础参数> | <workspace 参数名>
+# 格式：<基础命令> | <workspace 参数> | <继续对话参数> | <提示词参数>
 # ─────────────────────────────────────────────
 if [[ ! -f "$CMD_FILE" ]]; then
   echo "❌ 找不到 cmd.conf：$CMD_FILE" >&2
@@ -74,11 +74,48 @@ fi
 # 拆解管道符两侧：左侧=命令，右侧=workspace 参数名
 parse_cmd()  { echo "${1%%|*}" | sed 's/[[:space:]]*$//'; }
 parse_wsflag() {
-  # 有管道符才取右侧，再去掉所有空白；若为空则返回空字符串
+  # 取第一个管道符后、第二个管道符前的内容作为 workspace 参数
+  # 只去掉首尾空白，保留内部空格（如 -w /path/to/dir）
   if [[ "$1" == *"|"* ]]; then
-    echo "${1#*|}" | tr -d '[:space:]'
+    local rest="${1#*|}"
+    local val="${rest%%|*}"
+    # trim leading/trailing whitespace
+    val="$(echo "$val" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    echo "$val"
   else
     echo ""
+  fi
+}
+parse_contflag() {
+  # 取第二个管道符之后的内容作为继续对话参数；默认 -c
+  local count
+  count=$(echo "$1" | tr -cd '|' | wc -c | tr -d '[:space:]')
+  if [[ "$count" -ge 2 ]]; then
+    local val
+    val=$(echo "$1" | awk -F'|' '{print $3}' | tr -d '[:space:]')
+    if [[ -n "$val" ]]; then
+      echo "$val"
+    else
+      echo "-c"
+    fi
+  else
+    echo "-c"
+  fi
+}
+parse_promptflag() {
+  # 取第三个管道符之后的内容作为提示词参数；默认 -p
+  local count
+  count=$(echo "$1" | tr -cd '|' | wc -c | tr -d '[:space:]')
+  if [[ "$count" -ge 3 ]]; then
+    local val
+    val=$(echo "$1" | awk -F'|' '{print $4}' | tr -d '[:space:]')
+    if [[ -n "$val" ]]; then
+      echo "$val"
+    else
+      echo "-p"
+    fi
+  else
+    echo "-p"
   fi
 }
 
@@ -86,12 +123,18 @@ CMD_A=$(parse_cmd  "${CMDS[0]}")
 CMD_B=$(parse_cmd  "${CMDS[1]}")
 WSFLAG_A=$(parse_wsflag "${CMDS[0]}")
 WSFLAG_B=$(parse_wsflag "${CMDS[1]}")
+CONTFLAG_A=$(parse_contflag "${CMDS[0]}")
+CONTFLAG_B=$(parse_contflag "${CMDS[1]}")
+PROMPTFLAG_A=$(parse_promptflag "${CMDS[0]}")
+PROMPTFLAG_B=$(parse_promptflag "${CMDS[1]}")
 
-echo "📌 Agent A：$CMD_A  (workspace 参数：${WSFLAG_A:-无})"
-echo "📌 Agent B：$CMD_B  (workspace 参数：${WSFLAG_B:-无})"
+echo "📌 Agent A：$CMD_A  (workspace：${WSFLAG_A:-无}, 继续对话：${CONTFLAG_A}, 提示词：${PROMPTFLAG_A})"
+echo "📌 Agent B：$CMD_B  (workspace：${WSFLAG_B:-无}, 继续对话：${CONTFLAG_B}, 提示词：${PROMPTFLAG_B})"
 
 # ─────────────────────────────────────────────
-# 1-post. workspace 注入——仅当 cmd.conf 右侧有值时生效
+# 1-post. workspace 注入——仅当 cmd.conf 第2列有值时生效
+# 若值只有参数名（如 -w），则 mktemp 创建临时目录
+# 若值含路径（如 -w /path/dir），则直接使用
 # ─────────────────────────────────────────────
 EXTRA_A=""
 EXTRA_B=""
@@ -110,14 +153,29 @@ cleanup() {
 trap cleanup EXIT
 
 if [[ -n "$WSFLAG_A" ]]; then
-  WS_A=$(mktemp -d /tmp/agent-a-workspace-XXXXXX)
-  EXTRA_A="$WSFLAG_A $WS_A"
-  echo "🗂  Agent A workspace：$WS_A"
+  # 检查是否只有参数名（单词）还是包含路径
+  local_words=($WSFLAG_A)
+  if [[ ${#local_words[@]} -eq 1 ]]; then
+    # 只有 flag 如 -w，需要创建临时目录
+    WS_A=$(mktemp -d /tmp/agent-a-workspace-XXXXXX)
+    EXTRA_A="$WSFLAG_A $WS_A"
+    echo "🗂  Agent A workspace（临时）：$WS_A"
+  else
+    # 已包含路径如 "-w /path/dir"，直接使用，不需清理
+    EXTRA_A="$WSFLAG_A"
+    echo "🗂  Agent A workspace：${WSFLAG_A#* }"
+  fi
 fi
 if [[ -n "$WSFLAG_B" ]]; then
-  WS_B=$(mktemp -d /tmp/agent-b-workspace-XXXXXX)
-  EXTRA_B="$WSFLAG_B $WS_B"
-  echo "🗂  Agent B workspace：$WS_B"
+  local_words=($WSFLAG_B)
+  if [[ ${#local_words[@]} -eq 1 ]]; then
+    WS_B=$(mktemp -d /tmp/agent-b-workspace-XXXXXX)
+    EXTRA_B="$WSFLAG_B $WS_B"
+    echo "🗂  Agent B workspace（临时）：$WS_B"
+  else
+    EXTRA_B="$WSFLAG_B"
+    echo "🗂  Agent B workspace：${WSFLAG_B#* }"
+  fi
 fi
 
 # ─────────────────────────────────────────────
@@ -192,9 +250,13 @@ EOF
     local QNUM=$((i + 1))
     local QUESTION="${questions[$i]}"
 
-    # 第一题不带 -c（新建会话），后续题目追加 -c（续接上下文）
-    local CONTINUE_FLAG=""
-    [[ $i -gt 0 ]] && CONTINUE_FLAG="-c"
+    # 第一题不带继续参数（新建会话），后续题目追加继续参数（续接上下文）
+    local CONTINUE_FLAG_A=""
+    local CONTINUE_FLAG_B=""
+    if [[ $i -gt 0 ]]; then
+      CONTINUE_FLAG_A="$CONTFLAG_A"
+      CONTINUE_FLAG_B="$CONTFLAG_B"
+    fi
 
     echo "───────────────────────────────────────────────────"
     echo "🔢 问题 $QNUM / ${TOTAL}：$QUESTION"
@@ -203,23 +265,37 @@ EOF
     # ── Agent A ──
     echo ""
     echo "▶ 正在执行 Agent A（${CMD_A}）..."
-    echo "  $ $CMD_A${CONTINUE_FLAG:+ $CONTINUE_FLAG}${EXTRA_A:+ $EXTRA_A} \"$QUESTION\""
+    echo "  $ $CMD_A${CONTINUE_FLAG_A:+ $CONTINUE_FLAG_A}${EXTRA_A:+ $EXTRA_A} $PROMPTFLAG_A \"$QUESTION\""
     echo ""
-    read -ra CMD_A_ARGS <<< "$CMD_A"
-    read -ra EXTRA_A_ARGS <<< "${EXTRA_A:-}"
-    env -u CLAUDECODE "${CMD_A_ARGS[@]}" ${CONTINUE_FLAG:+"$CONTINUE_FLAG"} "${EXTRA_A_ARGS[@]:+${EXTRA_A_ARGS[@]}}" "$QUESTION" 2>&1 | tee "$TMP_A" || true
+    local -a ARGS_A=()
+    read -ra ARGS_A <<< "$CMD_A"
+    [[ -n "$CONTINUE_FLAG_A" ]] && ARGS_A+=("$CONTINUE_FLAG_A")
+    if [[ -n "$EXTRA_A" ]]; then
+      local -a EA=()
+      read -ra EA <<< "$EXTRA_A"
+      ARGS_A+=("${EA[@]}")
+    fi
+    ARGS_A+=("$PROMPTFLAG_A" "$QUESTION")
+    env -u CLAUDECODE "${ARGS_A[@]}" 2>&1 | tee "$TMP_A" || true
     local RESPONSE_A
     RESPONSE_A=$(cat "$TMP_A")
 
     echo ""
     echo "▶ 正在执行 Agent B（${CMD_B}）..."
-    echo "  $ $CMD_B${CONTINUE_FLAG:+ $CONTINUE_FLAG}${EXTRA_B:+ $EXTRA_B} \"$QUESTION\""
+    echo "  $ $CMD_B${CONTINUE_FLAG_B:+ $CONTINUE_FLAG_B}${EXTRA_B:+ $EXTRA_B} $PROMPTFLAG_B \"$QUESTION\""
     echo ""
 
     # ── Agent B ──
-    read -ra CMD_B_ARGS <<< "$CMD_B"
-    read -ra EXTRA_B_ARGS <<< "${EXTRA_B:-}"
-    env -u CLAUDECODE "${CMD_B_ARGS[@]}" ${CONTINUE_FLAG:+"$CONTINUE_FLAG"} "${EXTRA_B_ARGS[@]:+${EXTRA_B_ARGS[@]}}" "$QUESTION" 2>&1 | tee "$TMP_B" || true
+    local -a ARGS_B=()
+    read -ra ARGS_B <<< "$CMD_B"
+    [[ -n "$CONTINUE_FLAG_B" ]] && ARGS_B+=("$CONTINUE_FLAG_B")
+    if [[ -n "$EXTRA_B" ]]; then
+      local -a EB=()
+      read -ra EB <<< "$EXTRA_B"
+      ARGS_B+=("${EB[@]}")
+    fi
+    ARGS_B+=("$PROMPTFLAG_B" "$QUESTION")
+    env -u CLAUDECODE "${ARGS_B[@]}" 2>&1 | tee "$TMP_B" || true
     local RESPONSE_B
     RESPONSE_B=$(cat "$TMP_B")
 

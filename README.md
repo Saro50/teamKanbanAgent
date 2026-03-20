@@ -24,7 +24,7 @@ claude-internal -p |
 **3. 运行对比测试**
 
 ```bash
-./auto-ask.sh -t src/tests/batch_01_basic.csv   # 指定批次
+./auto-ask.sh -t src/tests/batch_04_reasoning.csv   # 指定批次
 ./auto-ask.sh --all                              # 全部批次
 ```
 
