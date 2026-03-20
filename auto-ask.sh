@@ -152,11 +152,13 @@ run_batch() {
     return 1
   fi
 
-  # ── 3. 创建报告文件 ──
-  mkdir -p "$RESULTS_DIR"
+  # ── 3. 创建报告文件（记录与评估分目录） ──
+  local BATCH_RECORDS_DIR="$RESULTS_DIR/$BATCH_NAME/records"
+  local BATCH_EVALS_DIR="$RESULTS_DIR/$BATCH_NAME/evals"
+  mkdir -p "$BATCH_RECORDS_DIR" "$BATCH_EVALS_DIR"
   local TIMESTAMP
   TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
-  local REPORT="$RESULTS_DIR/${BATCH_NAME}_${TIMESTAMP}.md"
+  local REPORT="$BATCH_RECORDS_DIR/${TIMESTAMP}.md"
 
   TMP_A=$(mktemp -t agent_a.XXXXXX)
   TMP_B=$(mktemp -t agent_b.XXXXXX)
@@ -270,7 +272,7 @@ EOF
     fi
 
     echo "🔍 正在生成评估报告..."
-    local EVAL_REPORT="$RESULTS_DIR/${BATCH_NAME}_eval_${TIMESTAMP}.md"
+    local EVAL_REPORT="$BATCH_EVALS_DIR/${TIMESTAMP}.md"
 
     # 构造评估 prompt（对比报告内容）
     local COMPARISON_CONTENT
@@ -285,17 +287,17 @@ EOF
 
 ${COMPARISON_CONTENT}"
 
-    # 替换 {SystemPrompts} 和 {Prompts}，构造最终评估命令
-    local EVAL_CMD
-    EVAL_CMD="${EVAL_CMD_TEMPLATE/\{SystemPrompts\}/$TEMPLATE_FILE}"
-    EVAL_CMD="${EVAL_CMD/\{Prompts\}/$EVAL_PROMPT}"
+    # 替换 {SystemPrompts}；{Prompts} 不做字符串替换，作为独立参数传递
+    local EVAL_CMD_PREFIX
+    EVAL_CMD_PREFIX="${EVAL_CMD_TEMPLATE/\{SystemPrompts\}/$TEMPLATE_FILE}"
+    EVAL_CMD_PREFIX="${EVAL_CMD_PREFIX/\{Prompts\}/}"
 
-    echo "  $ $EVAL_CMD"
+    echo "  $ ${EVAL_CMD_PREFIX} \"<prompt: ${#EVAL_PROMPT} chars>\""
     echo ""
 
-    # 执行评估命令
-    read -ra EVAL_CMD_ARGS <<< "$EVAL_CMD"
-    env -u CLAUDECODE "${EVAL_CMD_ARGS[@]}" 2>&1 | tee "$EVAL_REPORT" || true
+    # 将命令前缀按空格拆分为数组，再把 EVAL_PROMPT 作为单个参数追加
+    read -ra EVAL_CMD_ARGS <<< "$EVAL_CMD_PREFIX"
+    env -u CLAUDECODE "${EVAL_CMD_ARGS[@]}" "$EVAL_PROMPT" 2>&1 | tee "$EVAL_REPORT" || true
 
     echo ""
     echo "═══════════════════════════════════════════════════"
